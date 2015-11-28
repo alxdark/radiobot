@@ -14,6 +14,10 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Other options
  * 
@@ -34,11 +38,13 @@ public class Playlist implements Serializable {
     private final File image;
     private final int length;
     private final List<String> genres;
-    private final Ordering order;
-
+    private final Ordering ordering;
     private int position;
     
-    public Playlist(List<String> roots, String name, File image, int length, List<String> genres, Ordering order) {
+    @JsonCreator
+    public Playlist(@JsonProperty("roots") List<String> roots, @JsonProperty("name") String name, 
+            @JsonProperty("image") File image, @JsonProperty("length") int length, 
+            @JsonProperty("genres") List<String> genres, @JsonProperty("ordering") Ordering ordering) {
         checkArgument(image.exists() && image.isFile(), "Cannot find the image file: %s", image.getAbsolutePath());
         checkArgument(StringUtils.isNotBlank(name), "Your playlist does not specify a name (e.g. name = 'My Playlist')");
         checkArgument(!genres.isEmpty(), "Your playlist does not specify any genres");
@@ -61,13 +67,24 @@ public class Playlist implements Serializable {
         this.image = image;
         this.length = length;
         this.genres = genres;
-        this.order = order;
+        this.ordering = ordering;
     }
 
+    @JsonIgnore
     public Set<String> getGenreSet() {
         return new HashSet<String>(genres);
     }
     
+    @JsonIgnore
+    public final String getNextGenre() {
+        int pos = (position++) % genres.size();
+        return genres.get(pos);
+    }
+    
+    public List<String> getGenres() {
+        return genres;
+    }
+
     public static final String getName(String thisName) {
         return thisName.replaceAll(" ", "_").replaceAll("\\W+", "");
     }
@@ -80,6 +97,7 @@ public class Playlist implements Serializable {
         return name;
     }
     
+    @JsonIgnore
     public final String getFileName() {
         return Playlist.getName(name);
     }
@@ -92,13 +110,8 @@ public class Playlist implements Serializable {
         return image;
     }
     
-    public final Ordering getOrder() {
-        return order;
-    }
-    
-    public final String getNextGenre() {
-        int pos = (position++) % genres.size();
-        return genres.get(pos);
+    public final Ordering getOrdering() {
+        return ordering;
     }
     
     @Override 
@@ -109,7 +122,7 @@ public class Playlist implements Serializable {
             .append("imagePath", image.getAbsolutePath())
             .append("length", length)
             .append("genres", genres)
-            .append("order", order)
+            .append("order", ordering)
             .toString();
     }
 

@@ -71,7 +71,7 @@ public class CompilationGenerator {
             // human readable index
             int position = (i+1);
             // Get a random source, get a random file in the source
-            File srcFile = sources.getSource().getMusicFile();
+            File srcFile = sources.getSource().getNextMusicFile();
             File destFile = getDestFile(position, FilenameUtils.getExtension(srcFile.getName()));
 
             FileUtils.copyFile(srcFile, destFile);

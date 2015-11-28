@@ -19,3 +19,7 @@ You should then be able to run
 And it will complain because you have not fed it a configuration file. That's excellent; everything is working.
 
 == Configuring Compilations ==
+
+== TODO ==
+
+Externalize some of the configuration using any common mechanism (name of config files, mp3gain location, etc)

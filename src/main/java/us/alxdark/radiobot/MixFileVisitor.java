@@ -14,8 +14,10 @@ public class MixFileVisitor extends SimpleFileVisitor<Path> {
     private static final Logger logger = LoggerFactory.getLogger(MixFileVisitor.class);
     
     private final Sources sources;
+    private final ConfigFactory factory;
 
-    public MixFileVisitor(Ordering order) {
+    public MixFileVisitor(ConfigFactory factory, Ordering order) {
+        this.factory = factory;
         this.sources = new Sources(order);
     }
     
@@ -26,9 +28,10 @@ public class MixFileVisitor extends SimpleFileVisitor<Path> {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
         if (file.getFileName().endsWith("mix.js")) {
-            Source source = ConfigFactory.createSource(file);
+            Source source = factory.createSource(file);
             sources.add(source);
-            logger.info("Found source ({}): {}", source.getGenresString(), file.getParent().toString());
+            logger.info(String.format("Found source (%s) ordering '%s': %s", source.getGenresString(), source
+                    .getOrdering().name().toLowerCase(), file.getParent().toString()));
         }
         return FileVisitResult.CONTINUE;
     }
