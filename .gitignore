@@ -3,5 +3,6 @@
 .classpath
 .settings
 target
+export
 src/main/resources
 
