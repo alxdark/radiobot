@@ -1,43 +1,72 @@
 package us.alxdark.radiobot;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.io.File;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class SourceTest {
     
+    private static final String DIRECTORY = "src/test/resources/Bea Wain";
+    private static final String GENRE = "swing";
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Set<String> EXPECTED_FILES = Sets.newHashSet(
+        "src/test/resources/Bea Wain/BeaWain-ChatanoogaChoCho1942.mp3",
+        "src/test/resources/Bea Wain/BeaWain-DoILoveYou.mp3",
+        "src/test/resources/Bea Wain/BeaWain-StormyWeather1941.mp3"
+    );
 
     @Test
-    public void serialize() throws Exception {
-        // You know what? I hate the File object.
-        List<File> musicFiles = Lists.newArrayList(
-            new File("src/test/resources/Bea Wain/BeaWain-ChatanoogaChoCho1942.mp3"),
-            new File("src/test/resources/Bea Wain/BeaWain-DoILoveYou.mp3"),
-            new File("src/test/resources/Bea Wain/BeaWain-StormyWeather1941.mp3")
-        );
-        String parent = "src/test/resources/Bea Wain";
-        Ordering ordering = Ordering.RANDOM;
-        List<String> genres = Lists.newArrayList("swing");
-        
-        Source source = new Source(parent, ordering, genres);
+    public void serializeJSON() throws Exception {
+        Source source = new Source(DIRECTORY, Ordering.SHUFFLE, GENRE);
         String json = MAPPER.writeValueAsString(source);
         Source newSource = MAPPER.readValue(json, Source.class);
         
-        assertEquals(Ordering.RANDOM, newSource.getOrdering());
+        assertEquals(DIRECTORY, newSource.getDir());
+        assertEquals(GENRE, newSource.getGenre());
+        assertEquals(Ordering.SHUFFLE, newSource.getOrdering());
+        assertEquals(EXPECTED_FILES.size(), newSource.getFiles().size());
+        assertAllFilesFound(newSource.getFiles());
+    }
+    
+    @Test
+    public void serialize() throws Exception {
+        Storage storage = new SerializationStorage("target");
         
-        assertEquals(genres, newSource.getGenres());
-        assertEquals(musicFiles.size(), newSource.getMusicFiles().size());
-        for (int i=0; i < newSource.getMusicFiles().size(); i++) {
-            assertTrue(newSource.getMusicFiles().get(i).getAbsolutePath().contains(musicFiles.get(i).getAbsolutePath()));
+        Source source = new Source(DIRECTORY, Ordering.SHUFFLE, GENRE);
+        source.getNextFile(); // move position
+        
+        storage.save("Name", source);
+        Source newSource = storage.load("Name", Source.class);
+        
+        assertEquals(DIRECTORY, newSource.getDir());
+        assertEquals(GENRE, newSource.getGenre());
+        assertEquals(Ordering.SHUFFLE, newSource.getOrdering());
+        assertEquals(EXPECTED_FILES.size(), newSource.getFiles().size());
+        assertAllFilesFound(newSource.getFiles());
+    }
+    
+    private void assertAllFilesFound(List<String> files) {
+        for (String file : files) {
+            if (!doesHaveFile(file)) {
+                fail("File " +file+ " not found");
+            };
         }
+    }
+
+    private boolean doesHaveFile(String file) {
+        for (String match : EXPECTED_FILES) {
+            if (file.contains(match)) {
+                return true;
+            }
+        }
+        return false;
     }
     
 }

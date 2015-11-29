@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
@@ -34,44 +35,57 @@ public class CompilationGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(CompilationGenerator.class);
 
-    private static final String ALBUM_AUTHOR = "Various";
-    private static final String EXPORT = "export";
-
-    // private static final String MP3_GAIN = "C:\\Program Files\\mp3gain-win-full-1_2_5\\mp3gain.exe /s r /s s /r /k ";
-    // Really AAC Gain, but whatever
-    private static final String MP3_GAIN = "/Applications/MacMP3Gain.app/Contents/Resources/aacgain.i386 /s r /s s /r /k ";
-
+    private final ConfigFactory factory;
     private final Playlist playlist;
     private final Sources sources;
     private final int paddingLength;
     private final String yearString;
     private final Artwork artwork;
+    private boolean mp3GainExists;
 
-    public CompilationGenerator(Playlist playlist, Sources sources) throws IOException {
+    public CompilationGenerator(ConfigFactory factory, Playlist playlist, Sources sources) throws IOException {
+        this.factory = factory;
         this.playlist = playlist;
         this.sources = sources;
 
         this.paddingLength = getPaddingLength(playlist.getLength());
-        this.artwork = ArtworkFactory.createArtworkFromFile(playlist.getImage());
+        if (playlist.getImage() != null) {
+            File file = Paths.get(factory.getPlaylistsDirectory(), playlist.getImage()).toFile();
+            if (file.exists()) {
+                this.artwork = ArtworkFactory.createArtworkFromFile(file);    
+            } else {
+                throw new RuntimeException("This image doesn't exist for artwork: " + file.getAbsolutePath());
+            }
+        } else {
+            this.artwork = null;
+        }
         this.yearString = new SimpleDateFormat("yyyy").format(new Date());
     }
 
     public void createCompilation() throws Exception {
-        File dir = new File(EXPORT + File.separator + playlist.getFileName());
+        File dir = Paths.get(factory.getExportDirectory(), playlist.getFileName()).toFile();
         FileUtils.forceMkdir(dir);
         FileUtils.cleanDirectory(dir);
 
+        String mp3GainFile = factory.getMp3Gain().split(" ")[0];
+        mp3GainExists = new File(mp3GainFile).exists();
+        if (!mp3GainExists) {
+            logger.warn("mp3 gain not installed or configured, file volumes will not be normalized");
+        } else {
+            logger.info("mp3 gain found, files will be normalized");
+        }
+        
         for (int i=0; i < playlist.getLength(); i++) {
             String genre = playlist.getNextGenre();
-            Sources sources = this.sources.forGenre(genre);
-            if (sources == null) {
+            List<Source> sources = this.sources.getSources(genre);
+            if (sources == null || sources.isEmpty()) {
                 throw new IllegalArgumentException("No source folders were found for the genre " + genre);
             }
 
             // human readable index
             int position = (i+1);
             // Get a random source, get a random file in the source
-            File srcFile = sources.getSource().getNextMusicFile();
+            File srcFile = new File(this.sources.getNextSource(genre).getNextFile());
             File destFile = getDestFile(position, FilenameUtils.getExtension(srcFile.getName()));
 
             FileUtils.copyFile(srcFile, destFile);
@@ -113,7 +127,7 @@ public class CompilationGenerator {
 
         // Deletes are probably not necessary.
         v23tag.deleteField(ALBUM_ARTIST);
-        v23tag.setField(ALBUM_ARTIST, ALBUM_AUTHOR);
+        v23tag.setField(ALBUM_ARTIST, factory.getAlbumAuthor());
 
         v23tag.deleteField(YEAR);
         v23tag.setField(YEAR, yearString);
@@ -146,21 +160,13 @@ public class CompilationGenerator {
 
         audio.setTag(v23tag);
         audio.commit();
-
-        // Not portable between operating system, for sure. Using this distribution of
-        // a knock-off of MP3 Gain:
-        //
-        // http://homepage.mac.com/beryrinaldo/AudioTron/MacMP3Gain/
-        //
-        // The actual AAC Gain library is only distributed in source form, so this is the only binary
-        // out there to do this.
-        if (destFile.getAbsolutePath().indexOf(".mp3") > -1 ||
-            destFile.getAbsolutePath().indexOf(".MP3") > -1) {
-            Runtime run = Runtime.getRuntime();
-            run.exec(MP3_GAIN + destFile.getAbsolutePath());
-            // Process p = run.exec(MP3_GAIN + destFile.getAbsolutePath());
-            //printMe(p.getErrorStream());
-            //printMe(p.getInputStream());
+        
+        if (mp3GainExists && 
+           (destFile.getAbsolutePath().indexOf(".mp3") > -1 ||
+            destFile.getAbsolutePath().indexOf(".MP3") > -1)) {
+                logger.info("   Using Mp3 Gain to normalize volume of mp3");
+                Runtime run = Runtime.getRuntime();
+                run.exec(factory.getMp3Gain() + destFile.getAbsolutePath());
         }
     }
 
@@ -181,7 +187,7 @@ public class CompilationGenerator {
 
     private File getDestFile(int position, String extension) {
         String fileName = StringUtils.leftPad(Integer.toString(position), paddingLength, "0") + "." + extension;
-        return Paths.get(EXPORT, playlist.getFileName(), fileName).toFile();
+        return Paths.get(factory.getExportDirectory(), playlist.getFileName(), fileName).toFile();
     }
 
     private int getPaddingLength(int size) {

@@ -1,6 +1,7 @@
 package us.alxdark.radiobot;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Lists.newArrayList;
 
 import java.io.File;
 import java.io.IOException;
@@ -10,9 +11,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import javax.script.ScriptException;
 
@@ -23,6 +24,9 @@ import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.Scriptable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * Makin' stuff, often from JS-based config files.
@@ -39,6 +43,13 @@ public class ConfigFactory {
     private static final String NAME = "name";
     private static final String ORDER = "order";
     private static final String GENRE = "genre";
+    private static final String GENRES_FILENAME = "genres.filename";
+    private static final String PLAYLISTS_DIRECTORY = "playlists.directory";
+    private static final String SAVE_DIRECTORY = "save.directory";
+    private static final String MP3_GAIN = "mp3.gain";
+    private static final String ALBUM_AUTHOR = "album.author";
+    private static final String EXPORT_DIRECTORY = "export.directory";
+            
     private Properties props = new Properties();
     
     public ConfigFactory() {
@@ -50,25 +61,49 @@ public class ConfigFactory {
             System.exit(1);
         }
     }
-        
+
+    public String getGenresFilename() {
+        return props.getProperty(GENRES_FILENAME);
+    }
+    
+    public String getPlaylistsDirectory() {
+        return props.getProperty(PLAYLISTS_DIRECTORY);
+    }
+    
+    public String getSaveDirectory() {
+        return props.getProperty(SAVE_DIRECTORY);
+    }
+    
+    public String getMp3Gain() {
+        return props.getProperty(MP3_GAIN);
+    }
+
+    public String getAlbumAuthor() {
+        return props.getProperty(ALBUM_AUTHOR);
+    }
+
+    public String getExportDirectory() {
+        return props.getProperty(EXPORT_DIRECTORY);
+    }
+    
     public Sources createSources(Playlist playlist) throws Exception {
-        MixFileVisitor mixFileVisitor = new MixFileVisitor(this, playlist.getOrdering());
+        MixFileVisitor mixFileVisitor = new MixFileVisitor(this, playlist.getGenres(), playlist.getOrdering());
         for (String root : playlist.getRoots()) {
             logger.info("Looking for mix.js files in {}", root);
             Path path = Paths.get(root);
             Files.walkFileTree(path, mixFileVisitor);    
         }
         Sources sources = mixFileVisitor.getSources();
-        for (String genre : playlist.getGenreSet()) {
-            Sources against = sources.forGenre(genre);
-            if (against == null || against.getSources().isEmpty()) {
+        for (String genre : playlist.getGenres()) {
+            List<Source> against = sources.getSources(genre);
+            if (against == null || against.isEmpty()) {
                 throw new Exception("Could not find any sources for the genre: " + genre);
             }
         }            
         return sources;
     }
     
-    public Source createSource(Path sourcePath) throws IOException {
+    public Set<Source> createSource(Path sourcePath) throws IOException {
         try {
             // You want as fast as possible to establish that the directory belongs to this playlist,
             // and do no work until you figure this out. Source might be configured in two steps.
@@ -81,10 +116,13 @@ public class ConfigFactory {
             context.evaluateString(scope, script, CMD, 1, null);
 
             List<String> genres = getSingularOrList(scope, GENRE);
-            Ordering order = getOrder(scope, ORDER, Ordering.SHUFFLE);
+            Ordering order = getOrdering(scope, ORDER, Ordering.SHUFFLE);
             
-            return new Source(parent, order, genres);
-            
+            Set<Source> set = Sets.newHashSet();
+            for (String genre : genres) {
+                set.add(new Source(new File(parent).getAbsolutePath(), order, genre));
+            }
+            return set;
         } catch(Exception e) {
             throw new RuntimeException("Error in file " + sourcePath.toFile().getAbsolutePath() + ": " + e.getMessage());
         } finally {
@@ -109,16 +147,16 @@ public class ConfigFactory {
             context.evaluateString(scope, script, CMD, 1, null);
             
             String name = getString(scope, NAME);
-            String imagePath = getString(scope, IMAGE);
-            File image = createImageFile(configFile.getParent(), imagePath);
+            String image = getString(scope, IMAGE);
             int length = getInt(scope, LENGTH);
             List<String> genres = getList(scope, GENRES);
-            List<String> rootPaths = getSingularOrList(scope, ROOT);
-            Ordering order = getOrder(scope, ORDER, Ordering.RANDOM);
+            List<String> roots = getSingularOrList(scope, ROOT);
+            Ordering ordering = getOrdering(scope, ORDER, Ordering.RANDOM);
             
-            return new Playlist(rootPaths, name, image, length, genres, order);
+            return new Playlist(name, image, length, roots, genres, ordering);
 
         } catch(Exception e) {
+            e.printStackTrace();
             throw new RuntimeException("Error in file " + configFile.getAbsolutePath() + ": " + e.getMessage());
         } finally {
             Context.exit();    
@@ -131,14 +169,7 @@ public class ConfigFactory {
         return configFile;
     }
     
-    private File createImageFile(String configFilePath, String imagePath) {
-        if (imagePath.startsWith("/")) {
-            return new File(imagePath);
-        }
-        return Paths.get(configFilePath, imagePath).toFile();
-    }
-    
-    private Ordering getOrder(Scriptable scope, String key, Ordering defaultOrder) {
+    private Ordering getOrdering(Scriptable scope, String key, Ordering defaultOrder) {
         try {
             String string = (String)scope.get(key, scope);
             return Ordering.valueOf(string.toUpperCase());
@@ -162,7 +193,7 @@ public class ConfigFactory {
     }
     private List<String> getList(Scriptable scope, String key) {
         try {
-            List<String> list = new LinkedList<String>();
+            List<String> list = newArrayList();
             NativeArray array = (NativeArray)scope.get(key, scope);
             long len = array.getLength();
             for (int i=0; i < len; i++) {
@@ -175,7 +206,7 @@ public class ConfigFactory {
     }
     private List<String> getSingularOrList(Scriptable scope, String key) {
         // Lot of ways to specify the relevant playlist.
-        List<String> list = new LinkedList<String>();
+        List<String> list = Lists.newArrayList();
         String value = getString(scope, key);
         if (value == null) {
             value = getString(scope, key+"s");
