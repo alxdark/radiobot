@@ -32,13 +32,12 @@ public class Playlist implements Serializable {
     private final int length;
     private final List<String> roots;
     private final List<String> genres;
-    private final Ordering ordering;
     private int position;
     
     @JsonCreator
     public Playlist(@JsonProperty("name") String name, @JsonProperty("image") String image, 
         @JsonProperty("length") int length, @JsonProperty("roots") List<String> roots, 
-        @JsonProperty("genres") List<String> genres, @JsonProperty("ordering") Ordering ordering) {
+        @JsonProperty("genres") List<String> genres) {
         
         if (length < 1) {
             logger.info("No length specified, setting to 20 items");
@@ -53,7 +52,6 @@ public class Playlist implements Serializable {
         this.length = length;
         this.roots = roots;
         this.genres = genres;
-        this.ordering = ordering;
     }
 
     @JsonIgnore
@@ -87,10 +85,6 @@ public class Playlist implements Serializable {
         return image;
     }
     
-    public final Ordering getOrdering() {
-        return ordering;
-    }
-    
     @Override 
     public String toString() {
         return new ToStringBuilder(this)
@@ -99,7 +93,6 @@ public class Playlist implements Serializable {
             .append("image", image)
             .append("length", length)
             .append("genres", genres)
-            .append("order", ordering)
             .toString();
     }
 

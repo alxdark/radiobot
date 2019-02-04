@@ -4,8 +4,8 @@ import java.io.IOException;
 
 public interface Storage {
 
-    public <T> T load(String fileName, Class<T> clazz) throws IOException ;
+    <T> T load(String fileName, Class<T> clazz) throws IOException;
     
-    public <T> void save(String fileName, T object) throws IOException ;
+    <T> void save(String fileName, T object) throws IOException;
     
 }

@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
@@ -26,12 +27,12 @@ public class Source implements Serializable {
     private final String dir;
     private final List<String> files;
     private final Ordering ordering;
-    private final String genre;
+    private final Set<String> genres;
     private int position;
 
     @JsonCreator
     public Source(@JsonProperty("dir") String dir, @JsonProperty("ordering") Ordering ordering,
-            @JsonProperty("genre") String genre) {
+            @JsonProperty("genres") Set<String> genres) {
         checkNotNull(dir, "Parent folder for a source is null");
         checkNotNull(ordering, "No ordering specified for a source");
         if (!Paths.get(dir).toFile().isDirectory()) {
@@ -39,16 +40,19 @@ public class Source implements Serializable {
         }
         this.dir = dir;
         this.ordering = ordering;
-        this.genre = genre;
+        this.genres = genres;
         this.files = initializeFiles();
+        if (this.ordering == Ordering.LOOPING) {
+            this.position = rand.nextInt(files.size());    
+        }        
     }
 
     public String getDir() {
         return dir.toString();
     }
 
-    public String getGenre() {
-        return genre;
+    public Set<String> getGenres() {
+        return genres;
     }
 
     public Ordering getOrdering() {
@@ -78,10 +82,10 @@ public class Source implements Serializable {
         if (newFiles.isEmpty()) {
             throw new RuntimeException("Does this folder contain mp3s? " + dir);
         }
-        // Prepare for certain ordering strategies.
+        // Shuffle or otherwise short in order. Random doesn't care that they are sorted alphabetically. 
         if (ordering == Ordering.SHUFFLE) {
             Collections.shuffle(newFiles);
-        } else if (ordering == Ordering.SEQUENTIAL) {
+        } else {
             Collections.sort(newFiles, String.CASE_INSENSITIVE_ORDER);
         }
         return newFiles;
@@ -89,7 +93,7 @@ public class Source implements Serializable {
     
     @Override
     public int hashCode() {
-        return Objects.hash(dir, genre, files, ordering, position);
+        return Objects.hash(dir, genres, files, ordering, position);
     }
 
     @Override
@@ -100,7 +104,7 @@ public class Source implements Serializable {
             return false;
         Source other = (Source) obj;
         return Objects.equals(dir, other.dir) && 
-                Objects.equals(genre, other.genre) &&
+                Objects.equals(genres, other.genres) &&
                 Objects.equals(files, other.files) && 
                 Objects.equals(ordering, other.ordering) && 
                 Objects.equals(position, other.position);
@@ -112,7 +116,7 @@ public class Source implements Serializable {
             .append("dir", dir)
             .append("files", files)
             .append("ordering", ordering)
-            .append("genre", genre)
+            .append("genres", genres)
             .append("position", position)
             .toString();
     }

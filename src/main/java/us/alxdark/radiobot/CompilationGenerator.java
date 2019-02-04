@@ -3,8 +3,6 @@ package us.alxdark.radiobot;
 import static org.jaudiotagger.tag.FieldKey.ALBUM;
 import static org.jaudiotagger.tag.FieldKey.ALBUM_ARTIST;
 import static org.jaudiotagger.tag.FieldKey.ARTIST;
-import static org.jaudiotagger.tag.FieldKey.COVER_ART;
-import static org.jaudiotagger.tag.FieldKey.DISC_NO;
 import static org.jaudiotagger.tag.FieldKey.IS_COMPILATION;
 import static org.jaudiotagger.tag.FieldKey.TITLE;
 import static org.jaudiotagger.tag.FieldKey.TRACK;
@@ -31,6 +29,7 @@ import org.jaudiotagger.tag.images.ArtworkFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// TODO: jaudiotagger has issues, try replacing it with: https://github.com/mpatric/mp3agic
 public class CompilationGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(CompilationGenerator.class);
@@ -96,6 +95,7 @@ public class CompilationGenerator {
     }
 
     private void rewriteMetadataAndAdjustGain(File destFile, int trackNumber) throws Exception {
+        System.out.println(destFile.getAbsolutePath());
     	MP3File audio = (MP3File)AudioFileIO.read(destFile);	
         ID3v11Tag v1tag = getVersionOneTag(audio);
         AbstractID3v2Tag v23tag = getVersionTwoTag(audio);
@@ -115,49 +115,27 @@ public class CompilationGenerator {
         if (StringUtils.isNotBlank(album)) {
             trackTitle = (trackTitle + " (" + album + ")");
         }
-        v1tag.deleteField(TITLE);
-        v1tag.deleteField(ALBUM);
-        v1tag.deleteField(ARTIST);
-        v1tag.deleteField(TRACK);
-
-        // Can screw up the order of tracks, as it lists all the tracks
-        // that don't have this field, then all the ones that have a
-        // 1 in this field, etc.
-        v23tag.deleteField(DISC_NO);
-
-        // Deletes are probably not necessary.
-        v23tag.deleteField(ALBUM_ARTIST);
+        
+        audio.delete(v1tag);
+        audio.delete(v23tag);
+        
+        v23tag = new ID3v24Tag();
+        
         v23tag.setField(ALBUM_ARTIST, factory.getAlbumAuthor());
-
-        v23tag.deleteField(YEAR);
         v23tag.setField(YEAR, yearString);
-
         if (StringUtils.isNotBlank(trackTitle)) {
-            v23tag.deleteField(TITLE);
             v23tag.setField(TITLE, trackTitle);
-
-            //setSongLyric(v23tag, trackTitle);
         }
         if (StringUtils.isNotBlank(artist)) {
-            v23tag.deleteField(ARTIST);
             v23tag.setField(ARTIST, artist);
         }
-
-        v23tag.deleteField(IS_COMPILATION);
         v23tag.setField(IS_COMPILATION, "1");
-
-        v23tag.deleteField(ALBUM);
         v23tag.setField(ALBUM, playlist.getName());
-
-        v23tag.deleteField(TRACK);
         v23tag.setField(TRACK, Integer.toString(trackNumber));
         v23tag.setField(TRACK_TOTAL, Integer.toString(playlist.getLength()));
-
         if (artwork != null) {
-            v23tag.deleteField(COVER_ART);
             v23tag.setField(artwork);
         }
-
         audio.setTag(v23tag);
         audio.commit();
         
@@ -191,11 +169,6 @@ public class CompilationGenerator {
     }
 
     private int getPaddingLength(int size) {
-        int n = 1;
-        while (size > 1) {
-            size = size/10;
-            n++;
-        }
-        return n;
+        return (int)(Math.log10(size) + 1);
     }
 }

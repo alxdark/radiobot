@@ -8,8 +8,7 @@ public class Mp3FileFilter implements IOFileFilter {
 
 	@Override
 	public boolean accept(File file) {
-		String name = file.getName();
-		return isValidMp3File(name);
+		return isValidMp3File(file.getName());
 	}
 
 	@Override
@@ -17,9 +16,8 @@ public class Mp3FileFilter implements IOFileFilter {
 		return isValidMp3File(name);
 	}
 	
-	
 	private boolean isValidMp3File(String name) {
-		boolean suffix = name.endsWith(".mp3") ||  name.endsWith(".MP3") || name.endsWith(".m4a") || name.endsWith(".M4A");
+		boolean suffix = name.endsWith(".mp3") ||  name.endsWith(".MP3");
 		// Mac creates these files, they are a real drag. Ignore them.
 		boolean prefix = !name.startsWith("._");
 		return prefix && suffix;

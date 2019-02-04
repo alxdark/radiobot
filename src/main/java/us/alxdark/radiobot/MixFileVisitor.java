@@ -11,6 +11,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 
 public class MixFileVisitor extends SimpleFileVisitor<Path> {
@@ -21,9 +22,9 @@ public class MixFileVisitor extends SimpleFileVisitor<Path> {
     private final Set<String> playlistGenres;
     private final Sources sources;
 
-    public MixFileVisitor(ConfigFactory factory, List<String> playlistGenres, Ordering ordering) {
+    public MixFileVisitor(ConfigFactory factory, List<String> playlistGenres) {
         this.factory = factory;
-        this.sources = new Sources(ordering);
+        this.sources = new Sources();
         // playlist genres are duplicated in arbitrary ways for variability, here we just need unique values.
         this.playlistGenres = Sets.newHashSet(playlistGenres);
     }
@@ -36,13 +37,11 @@ public class MixFileVisitor extends SimpleFileVisitor<Path> {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
         if (file.getFileName().endsWith( factory.getGenresFilename() )) {
-            Set<Source> set = factory.createSource(file);
-            for (Source src : set) {
-                if (playlistGenres.contains(src.getGenre())) {
-                    sources.add(src);        
-                    logger.info(String.format("Found source (%s) ordering '%s': %s", src.getGenre(), src.getOrdering()
-                            .name().toLowerCase(), file.getParent().toString()));
-                }
+            Source src = factory.createSource(file);
+            if (src != null && !Sets.intersection(playlistGenres, src.getGenres()).isEmpty()) {
+                sources.add(src);        
+                logger.info(String.format("Found source (%s) ordering '%s': %s", Joiner.on(", ").join(src.getGenres()), src.getOrdering()
+                        .name().toLowerCase(), file.getParent().toString()));
             }
         }
         return FileVisitResult.CONTINUE;

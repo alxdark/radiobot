@@ -36,7 +36,8 @@ public class App {
             logger.info("Creating sources from scratch (this can take some time)");
             sources = factory.createSources(playlist);
         }
-        // Do this twice, it's often common to go through the whole scan and get an error, and it takes awhile
+        // Do this twice, it's often common to go through the whole scan and get an error when 
+        // making the compilation, and it takes awhile
         storage.save(playlist.getFileName(), sources);
         
         CompilationGenerator generator = new CompilationGenerator(factory, playlist, sources);

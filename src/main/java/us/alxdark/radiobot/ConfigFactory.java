@@ -13,7 +13,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
-import java.util.Set;
 
 import javax.script.ScriptException;
 
@@ -42,6 +41,7 @@ public class ConfigFactory {
     private static final String IMAGE = "image";
     private static final String NAME = "name";
     private static final String ORDER = "order";
+    private static final String ORDERING = "ordering"; // synonym for order, I often use this
     private static final String GENRE = "genre";
     private static final String GENRES_FILENAME = "genres.filename";
     private static final String PLAYLISTS_DIRECTORY = "playlists.directory";
@@ -87,7 +87,7 @@ public class ConfigFactory {
     }
     
     public Sources createSources(Playlist playlist) throws Exception {
-        MixFileVisitor mixFileVisitor = new MixFileVisitor(this, playlist.getGenres(), playlist.getOrdering());
+        MixFileVisitor mixFileVisitor = new MixFileVisitor(this, playlist.getGenres());
         for (String root : playlist.getRoots()) {
             logger.info("Looking for mix.js files in {}", root);
             Path path = Paths.get(root);
@@ -103,7 +103,7 @@ public class ConfigFactory {
         return sources;
     }
     
-    public Set<Source> createSource(Path sourcePath) throws IOException {
+    public Source createSource(Path sourcePath) throws IOException {
         try {
             // You want as fast as possible to establish that the directory belongs to this playlist,
             // and do no work until you figure this out. Source might be configured in two steps.
@@ -116,15 +116,12 @@ public class ConfigFactory {
             context.evaluateString(scope, script, CMD, 1, null);
 
             List<String> genres = getSingularOrList(scope, GENRE);
-            Ordering order = getOrdering(scope, ORDER, Ordering.SHUFFLE);
+            Ordering order = getOrdering(scope, Ordering.SHUFFLE);
             
-            Set<Source> set = Sets.newHashSet();
-            for (String genre : genres) {
-                set.add(new Source(new File(parent).getAbsolutePath(), order, genre));
-            }
-            return set;
+            return new Source(new File(parent).getAbsolutePath(), order, Sets.newHashSet(genres));
         } catch(Exception e) {
-            throw new RuntimeException("Error in file " + sourcePath.toFile().getAbsolutePath() + ": " + e.getMessage());
+            logger.error("Error in file " + sourcePath.toFile().getAbsolutePath() + ": " + e.getMessage());
+            return null;
         } finally {
             Context.exit();    
         }
@@ -151,9 +148,8 @@ public class ConfigFactory {
             int length = getInt(scope, LENGTH);
             List<String> genres = getList(scope, GENRES);
             List<String> roots = getSingularOrList(scope, ROOT);
-            Ordering ordering = getOrdering(scope, ORDER, Ordering.RANDOM);
             
-            return new Playlist(name, image, length, roots, genres, ordering);
+            return new Playlist(name, image, length, roots, genres);
 
         } catch(Exception e) {
             e.printStackTrace();
@@ -169,9 +165,12 @@ public class ConfigFactory {
         return configFile;
     }
     
-    private Ordering getOrdering(Scriptable scope, String key, Ordering defaultOrder) {
+    private Ordering getOrdering(Scriptable scope, Ordering defaultOrder) {
         try {
-            String string = (String)scope.get(key, scope);
+            String string = (String)scope.get(ORDER, scope);
+            if (string == null) {
+                string = (String)scope.get(ORDERING, scope);
+            }
             return Ordering.valueOf(string.toUpperCase());
         } catch(Throwable t) {
             return defaultOrder;
