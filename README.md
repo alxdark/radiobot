@@ -39,7 +39,7 @@ file in the folder. Radiobot will scan the root folders you provide in the playl
 ## Creating a playlist configuration file
 
 A Playlist is a file ending with the *.js extension that contains basic JavaScript to configure a playlist. Here's 
-and example:
+an example:
 
 	name = "Andromeda Radio"
 	roots = ["/Volumes/music/Thematic/","/Volumes/music/Drama/","/Volumes/music/Sounds/Andromeda/"]
@@ -70,6 +70,3 @@ and example:
 This is just JS assignment to some variables, including some logic in preparing the list of genre tags that will 
 be used, sequentially, to select a music file of the same genre from one of your source folders.           
 
-## TODO
-
-This documentation. It's simpler thatn it looks to use this thing.
