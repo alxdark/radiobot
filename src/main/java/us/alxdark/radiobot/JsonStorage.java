@@ -12,14 +12,14 @@ import org.apache.commons.io.FileUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Uses JSON rather than Java's object serialization, but it is very very slow to load large JSON files. 
- * Preferable to go with serialization.
+ * Uses JSON rather than Java's object serialization, but it is very very slow
+ * to load large JSON files. Preferable to go with serialization.
  */
 public class JsonStorage implements Storage {
-    
+
     private String savePath;
     private static ObjectMapper MAPPER = new ObjectMapper();
-    
+
     public JsonStorage(String savePath) {
         this.savePath = savePath;
     }
@@ -42,7 +42,7 @@ public class JsonStorage implements Storage {
             file.write(MAPPER.writeValueAsString(object));
         }
     }
-    
+
     private String getFileName(String name, Class<?> clazz) throws IOException {
         Path saveDirectory = Paths.get(savePath);
         FileUtils.forceMkdir(saveDirectory.toFile());
